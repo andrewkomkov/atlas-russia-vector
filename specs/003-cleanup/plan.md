@@ -31,6 +31,8 @@
 - Политика CSP: скрипты и стили только свои, рабочие потоки MapLibre через `blob:`,
   плитки и стиль подложки с `tiles.openfreemap.org`. Атрибуты `style` у образцов цвета
   требуют `style-src 'unsafe-inline'`.
+- Зона `ebpm.center` сама вставляет счётчик Cloudflare Web Analytics. Политика разрешает
+  его скрипт с `static.cloudflareinsights.com` и отправку на `cloudflareinsights.com`.
 
 ## Проверка
 
