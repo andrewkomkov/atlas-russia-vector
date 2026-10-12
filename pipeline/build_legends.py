@@ -12,6 +12,15 @@ MUCH_MORE = 1.25    # large text reads cleaner on the whole sheet: the enlarged 
 def count(r):
     return len(r['labels']) + len(r.get('alts', {}))
 
+def best(doc, whole, fine):
+    """Decode the legend from the reading of the whole sheet or from the enlarged one."""
+    r = legend.decode(doc, whole)
+    if not fine: return r
+    r2 = legend.decode(doc, fine)
+    heights = sorted(s['h'] for s in legend.swatches(doc))
+    small = bool(heights) and heights[len(heights) // 2] < SMALL_SWATCH
+    return r2 if small or count(r2) >= max(count(r) + 2, MUCH_MORE * count(r)) else r
+
 def main():
     os.makedirs(os.path.join(OUT, 'l'), exist_ok=True)
     files = {m['id']: m['file'] for m in catalog.parse(os.path.join(DATA, 'pages'))}
@@ -24,15 +33,9 @@ def main():
         dst = os.path.join(OUT, 'l', m['id'] + '.json')
         if os.path.exists(dst): os.remove(dst)
         if m.get('nv') or not (os.path.exists(v) and os.path.exists(o)): continue
-        doc = json.load(open(v))
-        r = legend.decode(doc, json.load(open(o)))
-        found = count(r)
         fine = os.path.join(DATA, 'ocr_legend', m['id'] + '.json')      # legend regions read at a larger scale
-        if os.path.exists(fine):
-            r2 = legend.decode(doc, json.load(open(fine)))
-            heights = sorted(s['h'] for s in legend.swatches(doc))
-            small = heights[len(heights) // 2] < SMALL_SWATCH
-            if small or count(r2) >= max(found + 2, MUCH_MORE * found): r, found = r2, count(r2)
+        r = best(json.load(open(v)), json.load(open(o)), json.load(open(fine)) if os.path.exists(fine) else None)
+        found = count(r)
         if found < 2: continue                     # a single labelled rectangle is rarely a legend
         json.dump(r, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
         m['lg'] = found; n += 1; tot += m['lg']

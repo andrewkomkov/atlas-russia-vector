@@ -22,6 +22,7 @@ for m in maps:
     if not os.path.exists(os.path.join(OUT, 't', i + '.webp')): bad['нет миниатюры'].append(i)
     if not os.path.exists(os.path.join(OUT, 'd', i + '.webp')): bad['нет копии для листа'].append(i)
     if i + os.path.splitext(m['file'])[1].lower() not in r2: bad['оригинал не в R2'].append(i)
-print('карт найдено обходом:', len(maps), '| в каталоге:', len(cat), '| с привязкой:', sum('geo' in m for m in cat), '| только картинка:', len(nv))
+by_legend = sum(bool(json.load(open(f)).get('legend')) for f in (os.path.join(DATA, 'meta', i + '.json') for i in ids) if os.path.exists(f))
+print('карт найдено обходом:', len(maps), '| в каталоге:', len(cat), '| с привязкой:', sum('geo' in m for m in cat), '| только картинка:', len(nv), '| классы по легенде:', by_legend)
 for k, v in bad.items(): print(f'{k}: {len(v)}', v[:8] if v else '')
 sys.exit(1 if any(bad.values()) else 0)

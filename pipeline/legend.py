@@ -36,6 +36,7 @@ _LEAD = re.compile(r'^[|/\\•·.,;:\s]+')                          # stray mark
 _NUMBERED = re.compile(r'^(\d{1,3}[а-яa-z]?)\s*[•·.|*]*\s*(?=[A-ZА-ЯЁ(])')   # "19 • Сосновые ..."
 _LEADNUM = re.compile(r'^[|/\\•·.\s]*(\d{1,3}[а-яa-z]?)[\s•·.|*]+(?=[^\W\d_]|\()')   # a number, then words
 COLUMN_GAP = 8         # swatch heights; a wider gap inside a column is the map between two legend blocks
+KEEP_SWATCHES = 0.9    # share of the swatches a layer built from the legend colours must still show
 SAME_COLOUR = 3.5      # dE; swatches closer than this are printed with one ink
 MAX_ALTS = 6           # more legend items of one colour: a list would not help
 _CYR, _LAT = re.compile(r'[а-яёА-ЯЁ]'), re.compile(r'[a-zA-Z]')
@@ -147,6 +148,16 @@ def palette(doc, lab):
         c = np.median(box, 0)
         if all(np.linalg.norm(c - o) >= SAME_COLOUR for o in out): out.append(c)
     return out
+
+def swatch_classes(doc):
+    """How many colour classes the legend swatches of the layer have."""
+    return len({s['ci'] for s in swatches(doc)})
+
+def keeps_legend(before, after):
+    """The layer built from the legend colours is worth keeping: the swatches are still
+    found and they got more classes than in the first pass."""
+    return (len(swatches(after)) >= KEEP_SWATCHES * len(swatches(before))
+            and swatch_classes(after) > swatch_classes(before))
 
 def drop_junk(labels):
     """labels: {ci: (text, column)} -> the same without paragraphs, symbols-only text and torn-off pieces."""

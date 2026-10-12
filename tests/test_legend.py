@@ -139,5 +139,28 @@ class Columns(unittest.TestCase):
         self.assertEqual([len(c) for c in cols], [3, 3])
 
 
+
+def layer(classes):
+    """A vector layer with a column of legend swatches, one colour class per swatch."""
+    f = [[ci, 0, [[100, y, 160, y, 160, y + 30, 100, y + 30]]] for y, ci in zip(range(100, 5000, 60), classes)]
+    return {'w': 2700, 'h': 2000, 'colors': ['#000000'] * (max(classes) + 1), 'f': f}
+
+
+class KeepsLegend(unittest.TestCase):
+    def test_more_classes_and_all_swatches(self):
+        self.assertTrue(legend.keeps_legend(layer([0, 0, 1, 1, 2, 2]), layer([0, 1, 2, 3, 4, 5])))
+
+    def test_same_classes_is_no_gain(self):
+        self.assertFalse(legend.keeps_legend(layer([0, 0, 1, 1, 2, 2]), layer([3, 3, 4, 4, 5, 5])))
+
+    def test_lost_swatches(self):
+        before = layer([0] * 10 + [1] * 10)
+        self.assertFalse(legend.keeps_legend(before, layer(list(range(17)))))
+        self.assertTrue(legend.keeps_legend(before, layer(list(range(18)))))
+
+    def test_swatch_classes(self):
+        self.assertEqual(legend.swatch_classes(layer([0, 0, 1, 1, 2, 2])), 3)
+
+
 if __name__ == '__main__':
     unittest.main()
