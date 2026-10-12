@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Векторный атлас России</title>
+<meta name="description" content="Карты Национального атласа России, переведённые из картинок в векторные слои на интерактивном глобусе.">
+<meta name="theme-color" content="#0b1016" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f2ec" media="(prefers-color-scheme: light)">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="map" aria-label="Карта"></div>
+
+<aside id="side" class="panel" aria-label="Каталог карт">
+  <header class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 16h26M16 3c5 4 5 22 0 26M16 3c-5 4-5 22 0 26M5.5 9.5c6 3 15 3 21 0M5.5 22.5c6-3 15-3 21 0" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+    <div>
+      <h1>Векторный атлас России</h1>
+      <p id="stats">Загрузка каталога…</p>
+    </div>
+    <button id="theme" class="icon" title="Светлая или тёмная тема" aria-label="Сменить тему">◐</button>
+    <button id="collapse" class="icon" title="Свернуть каталог" aria-label="Свернуть каталог">‹</button>
+  </header>
+  <div class="search">
+    <input id="q" type="search" placeholder="Поиск: зайцы, климат, население…" autocomplete="off" spellcheck="false">
+  </div>
+  <nav id="toms" class="chips" aria-label="Тома"></nav>
+  <label class="check"><input id="onlygeo" type="checkbox"> Только карты с привязкой к глобусу</label>
+  <div id="list" class="list" tabindex="0"></div>
+</aside>
+<button id="expand" class="icon float" title="Открыть каталог" aria-label="Открыть каталог" hidden><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+
+<section id="info" class="panel" hidden aria-label="Текущая карта">
+  <div class="crumbs" id="crumbs"></div>
+  <h2 id="title"></h2>
+  <div class="seg" role="tablist" aria-label="Режим просмотра">
+    <button id="mode-geo" role="tab">На глобусе</button>
+    <button id="mode-sheet" role="tab">Лист</button>
+  </div>
+  <p class="note" id="note"></p>
+  <div class="row">
+    <label for="opacity">Вектор</label>
+    <input id="opacity" type="range" min="0" max="100" value="88">
+    <output id="opacity-v">88%</output>
+  </div>
+  <div class="row" id="row-raster">
+    <label for="raster">Оригинал</label>
+    <input id="raster" type="range" min="0" max="100" value="100">
+    <output id="raster-v">100%</output>
+  </div>
+  <div class="row toggles">
+    <label class="check"><input id="outline" type="checkbox"> Контуры полигонов</label>
+    <label class="check" id="globe-wrap"><input id="globe" type="checkbox" checked> Глобус</label>
+  </div>
+  <div class="legend-head"><span>Цветовые классы</span><button id="legend-reset" class="link">показать все</button></div>
+  <div id="legend" class="legend"></div>
+  <div class="actions">
+    <a id="dl-orig" class="btn" download>Оригинал</a>
+    <button id="dl-geojson" class="btn">GeoJSON</button>
+    <a id="src" class="btn ghost" target="_blank" rel="noopener">Источник ↗</a>
+    <button id="share" class="btn ghost">Ссылка</button>
+  </div>
+  <div class="nav2"><button id="prev" class="link">← предыдущая</button><button id="next" class="link">следующая →</button></div>
+</section>
+
+<div id="tip" class="tip" hidden></div>
+<div id="toast" class="toast" hidden></div>
+<footer class="credit">Источник карт: <a href="https://nationalatlas.ru" target="_blank" rel="noopener">Национальный атлас России</a> · векторные слои получены автоматически</footer>
+
+<script src="vendor/maplibre-gl.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "atlas-russia-vector",
+  "private": true,
+  "scripts": {
+    "vendor": "mkdir -p public/vendor && cp node_modules/maplibre-gl/dist/maplibre-gl.js node_modules/maplibre-gl/dist/maplibre-gl.css public/vendor/",
+    "postinstall": "npm run vendor",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.149.0"
+  },
+  "dependencies": {
+    "maplibre-gl": "5.24.0"
+  }
+}
