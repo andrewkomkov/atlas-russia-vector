@@ -23,9 +23,12 @@
   Затем запустить `build_legends.py`.
 - Текст легенд: `data/ocr/` — целые листы, `data/ocr_legend/` — области легенд с увеличением
   (`pipeline/ocr_legends.py`). `build_legends.py` выбирает лучшее чтение для каждой карты.
-- Карты из `LEGEND_PALETTE` в `pipeline/build.py` получают классы по цветам легенды.
-  После изменения списка: `build.py --only <id> --force`, `ocr_legends.py --only <id> --force`,
-  `build_legends.py`.
+- Классы по цветам легенды: карты выбирает правило в `build.by_legend`, условие —
+  `legend.keeps_legend`. Списка карт нет. Признак — поле `legend` в `data/meta/<id>.json`.
+  После изменения правила: `build.py --force` (или `--ids FILE`), `ocr_legends.py`,
+  `build_legends.py`. `ocr_legends.py` сам перечитывает легенды с новыми областями.
+- `vec.quantize` задаёт начальное число генератора OpenCV. Без него результат зависит
+  от порядка карт в процессе.
 - Окружение Python: `.venv` (создаётся по `requirements.txt`).
 - `data/` и `site/public/data/` в git не входят.
 
