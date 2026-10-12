@@ -14,11 +14,21 @@ import catalog, georef, vec
 DATA = os.path.join(ROOT, 'data'); OUT = os.path.join(ROOT, 'site', 'public', 'data')
 NE = os.path.join(DATA, 'ne', 'countries50.geojson')
 MAX_BYTES = 1_400_000        # per vector file; coarser settings are tried above this
+MIN_POLYGONS = 6             # fewer polygons: a table, a chart or a line-only map
+MAX_POLYGONS_UNREF = 1500    # more on a sheet without georeference: a photo, relief or an old plan
+
+def no_vector(meta):
+    """-> 'empty' | 'noise' | None: why the sheet is shown as a picture only."""
+    if meta['nf'] < MIN_POLYGONS: return 'empty'
+    if 'geo' not in meta and meta['nf'] > MAX_POLYGONS_UNREF: return 'noise'
+    return None
 
 def one(m):
     meta_fn = os.path.join(DATA, 'meta', m['id'] + '.json')
     if os.path.exists(meta_fn) and not FORCE:
-        return json.load(open(meta_fn))
+        meta = json.load(open(meta_fn))
+        # the vector file of a picture-only sheet is dropped; rebuild it if the rule no longer applies
+        if no_vector(meta) or os.path.exists(os.path.join(OUT, 'v', m['id'] + '.json')): return meta
     src = os.path.join(DATA, 'img', m['file'])
     im = cv2.imread(src) if os.path.exists(src) else None
     if im is None:
@@ -69,10 +79,17 @@ def main():
             miss += 1; continue
         e = dict(m)
         for k in ('order', 'file', 'alt', 'altfile'): e.pop(k, None)
-        e.update(json.load(open(fn))); out.append(e)
+        e.update(json.load(open(fn)))
+        why = no_vector(e)
+        if why:
+            e['nv'] = why
+            v = os.path.join(OUT, 'v', m['id'] + '.json')
+            if os.path.exists(v): os.remove(v)
+        out.append(e)
     err = [x for x in metas.values() if 'error' in x]
     json.dump({'built': time.strftime('%Y-%m-%d'), 'volumes': catalog.VOLUMES, 'maps': out}, open(os.path.join(OUT, 'catalog.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
-    print('catalog', len(out), 'maps; georeferenced', sum('geo' in e for e in out), '; not built', miss, '; errors', len(err))
+    print('catalog', len(out), 'maps; georeferenced', sum('geo' in e for e in out), '; picture only', sum('nv' in e for e in out),
+          '; not built', miss, '; errors', len(err))
     for x in err[:20]: print('  ', x)
 
 FORCE = False

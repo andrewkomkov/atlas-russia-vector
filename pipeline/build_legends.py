@@ -17,7 +17,7 @@ def main():
         o = os.path.join(DATA, 'ocr', os.path.splitext(files[m['id']])[0] + '.json')
         dst = os.path.join(OUT, 'l', m['id'] + '.json')
         if os.path.exists(dst): os.remove(dst)
-        if not (os.path.exists(v) and os.path.exists(o)): continue
+        if m.get('nv') or not (os.path.exists(v) and os.path.exists(o)): continue
         r = legend.decode(json.load(open(v)), json.load(open(o)))
         if len(r['labels']) < 2: continue          # a single labelled rectangle is rarely a legend
         json.dump(r, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))

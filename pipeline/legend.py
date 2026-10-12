@@ -25,6 +25,18 @@ def swatches(doc):
     return best if len(best) >= 3 else []
 
 _NUM = re.compile(r'^[\d\s.,;:()\-–—/%°]+$')
+MAX_LABEL = 120        # longer text is a paragraph glued to a swatch, not a label
+_PLAIN = re.compile(r'^(нет|менее|более|свыше|от|до|прочие|другие|остальные)\b')   # usual lowercase starts
+CAPITAL_SHARE = 0.7    # legends written with capitals: a lowercase start means a lost beginning
+
+def drop_junk(labels):
+    """labels: {ci: (text, column)} -> the same without paragraphs, symbols-only text and torn-off pieces."""
+    ok = {ci: v for ci, v in labels.items() if len(v[0]) <= MAX_LABEL and re.search(r'[^\W_]', v[0])}
+    lower = {ci for ci, v in ok.items() if v[0][0].islower() and not _PLAIN.match(v[0])}
+    upper = sum(v[0][0].isupper() for v in ok.values())     # labels that start with a digit do not vote
+    if upper >= 3 and upper >= CAPITAL_SHARE * (upper + len(lower)):
+        ok = {ci: v for ci, v in ok.items() if ci not in lower}
+    return ok
 
 def decode(doc, ocr):
     """-> {'labels': {ci: text}, 'groups': {ci: heading}}
@@ -46,7 +58,7 @@ def decode(doc, ocr):
         col.sort(key=lambda s: s['y'])
         left = col[0]['x'] + w0 * 0.8
         right = min([c[0]['x'] for c in cols[k + 1:] if c[0]['x'] > left + w0] + [col[0]['x'] + w0 * 9]) - 2
-        mine = [(i, l) for i, l in enumerate(lines) if left <= l['x'] < right and l['x'] <= col[0]['x'] + w0 * 3.5 + (0 if True else 0)]
+        mine = [(i, l) for i, l in enumerate(lines) if left <= l['x'] < right and l['x'] <= col[0]['x'] + w0 * 3.5]
         # a line that starts further right is a second line of a label only if another line of the column starts near it
         centres = [s['y'] + s['h'] / 2 for s in col]
         pitch = float(np.median(np.diff(centres))) if len(col) > 1 else h0 * 2.2
@@ -60,9 +72,10 @@ def decode(doc, ocr):
             if not got or not any(abs(l['cy'] - centres[j]) <= 0.9 * h0 for _, l in got): continue
             text = re.sub(r'\s+', ' ', ' '.join(l['t'].strip() for _, l in got))
             text = re.sub(r'(\w)- (\w)', r'\1\2', text).strip(' .;')      # undo hyphenation at line breaks
-            if not text or len(text) > 240: continue
+            if not text: continue
             taken.update(i for i, _ in got)
             if s['ci'] not in labels: labels[s['ci']] = (text, k)
+    labels = drop_junk(labels)
     # heading: up to two free lines right above the top of the column
     for k, col in enumerate(cols):
         top = col[0]['y']; bx0, bx1 = col[0]['x'] - w0, col[0]['x'] + w0 * 5
