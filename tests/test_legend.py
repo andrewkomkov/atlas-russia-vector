@@ -87,11 +87,56 @@ class Decode(unittest.TestCase):
         doc = swatch_doc([(1, 100), (1, 140), (2, 180), (3, 220)])
         ocr = {'lines': [line('Леса', 101), line('Степи', 141), line('Тундра', 181), line('Пустыни', 221)]}
         self.assertEqual(legend.decode(doc, ocr)['labels'], {'2': 'Тундра', '3': 'Пустыни'})
+        self.assertEqual([a['t'] for a in legend.decode(doc, ocr)['alts']['1']], ['Леса', 'Степи'])
 
     def test_long_label_with_unsure_line_is_dropped(self):
         doc = swatch_doc([(1, 100), (2, 140), (3, 180)])
         ocr = {'lines': [line('Леса', 101), line('Се не про д рожногажные', 141, conf=0.3), line('Тундра', 181)]}
         self.assertEqual(legend.decode(doc, ocr)['labels'], {'1': 'Леса', '3': 'Тундра'})
+
+
+class NumberedLegend(unittest.TestCase):
+    def numbered(self):
+        doc = swatch_doc([(1, 100), (2, 160), (3, 220), (3, 280)])
+        ocr = {'lines': [
+            line('Хвойные (Pinus sylvestris,', 92), line('16 Larix sibirica) леса', 106),
+            line('Южные', 138, x=260), line('17', 162), line('Степи луговые', 162, x=180),
+            line('18 Тундры кустарничковые', 221), line('19 Болота верховые', 281),
+            line('20 Пустыни северные', 297),
+        ]}
+        return legend.decode(doc, ocr)
+
+    def test_number_is_kept_apart_from_text(self):
+        got = self.numbered()
+        self.assertEqual(got['labels'], {'1': 'Хвойные (Pinus sylvestris, Larix sibirica) леса', '2': 'Степи луговые'})
+        self.assertEqual(got['nums'], {'1': '16', '2': '17'})
+
+    def test_caption_above_item_names_the_group(self):
+        self.assertEqual(self.numbered()['groups'], {'2': 'Южные'})
+
+    def test_one_colour_with_two_items_lists_both(self):
+        alts = self.numbered()['alts']['3']
+        self.assertEqual([(a['n'], a['t']) for a in alts], [('18', 'Тундры кустарничковые'), ('19', 'Болота верховые')])
+
+    def test_text_is_cut_at_the_number_of_the_next_item(self):
+        self.assertNotIn('Пустыни', self.numbered()['alts']['3'][1]['t'])
+
+
+class Harmonise(unittest.TestCase):
+    def test_rare_spelling_follows_the_frequent_one(self):
+        texts = ['Betula nana', 'Betula exilis', 'Betula pendula', 'Befula lanata', 'Befula ermanii']
+        self.assertEqual(legend.harmonise(texts)[3:], ['Betula lanata', 'Betula ermanii'])
+
+    def test_different_words_are_left_alone(self):
+        texts = ['Picea abies', 'Picea obovata', 'Picea ajanensis', 'Pinus pumila']
+        self.assertEqual(legend.harmonise(texts), texts)
+
+
+class Columns(unittest.TestCase):
+    def test_column_broken_by_the_map_is_two_blocks(self):
+        sw = legend.swatches(swatch_doc([(1, 100), (2, 140), (3, 180), (4, 900), (5, 940), (6, 980)]))
+        cols, _, _ = legend.columns(sw)
+        self.assertEqual([len(c) for c in cols], [3, 3])
 
 
 if __name__ == '__main__':

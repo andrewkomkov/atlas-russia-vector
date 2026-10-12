@@ -11,10 +11,10 @@ import catalog, legend
 
 DATA = os.path.join(ROOT, 'data'); SITE = os.path.join(ROOT, 'site', 'public', 'data')
 OUT = os.path.join(DATA, 'ocr_legend'); OCR_BIN = os.path.join(DATA, 'ocr_bin')
-SMALL_SWATCH = 22  # sheet pixels; a legend with lower swatches has small text: only such legends are read here
 SCALE = 2          # enlargement of a legend piece before recognition
 PIECE_H = 800      # sheet pixels; taller regions are cut into pieces
 OVERLAP = 100      # sheet pixels shared by neighbouring pieces, more than a text line
+TIMEOUT = 90       # seconds for the pieces of one sheet
 FORCE = False
 
 def pieces(regions):
@@ -51,7 +51,13 @@ def read(im, boxes):
             names.append(os.path.join(tmp, f'{i}.png'))
             big = cv2.resize(im[y0:y1, x0:x1], None, fx=SCALE, fy=SCALE, interpolation=cv2.INTER_CUBIC)
             cv2.imwrite(names[-1], big)
-        subprocess.run([OCR_BIN] + names, env={**os.environ, 'OCR_OUT': tmp}, check=True, capture_output=True)
+        for attempt in range(2):             # Vision hangs once in a while: stop it and read again
+            try:
+                subprocess.run([OCR_BIN] + names, env={**os.environ, 'OCR_OUT': tmp}, check=True,
+                               capture_output=True, timeout=TIMEOUT)
+                break
+            except subprocess.TimeoutExpired:
+                if attempt: raise
         for i, (x0, y0, _, _) in enumerate(boxes):
             fn = os.path.join(tmp, f'{i}.json')
             if not os.path.exists(fn): continue
@@ -67,8 +73,6 @@ def one(m):
     doc = json.load(open(vec))
     boxes = pieces(legend.regions(doc))
     if not boxes: return 0
-    low = sorted(s['h'] for s in legend.swatches(doc))
-    if low[len(low) // 2] >= SMALL_SWATCH: return 0        # large text: the whole-sheet reading is good
     im = cv2.imread(os.path.join(DATA, 'img', m['file']))
     if im is None: return 0
     json.dump({'lines': read(im, boxes)}, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
