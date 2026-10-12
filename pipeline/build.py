@@ -9,7 +9,7 @@ from multiprocessing import Pool
 import cv2
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-import catalog, georef, vec
+import catalog, georef, legend, vec
 
 DATA = os.path.join(ROOT, 'data'); OUT = os.path.join(ROOT, 'site', 'public', 'data')
 NE = os.path.join(DATA, 'ne', 'countries50.geojson')
@@ -17,6 +17,8 @@ MAX_BYTES = 1_400_000        # per vector file; coarser settings are tried above
 # catalog fields the site reads; the rest of the page and build metadata stays in data/meta
 CATALOG_FIELDS = ('id', 'tom', 'n', 'of', 'section', 'title', 'page', 'src', 'w', 'h', 'osize', 'geo', 'nv')
 FORCE = False                # set in every worker by _init
+# pilot of specs/004-legend-palette: colour classes are taken from the legend swatches
+LEGEND_PALETTE = {'2-328-330-1', '4-196-197-1'}
 MIN_POLYGONS = 6             # fewer polygons: a table, a chart or a line-only map
 MAX_POLYGONS_UNREF = 1500    # more on a sheet without georeference: a photo, relief or an old plan
 
@@ -41,6 +43,9 @@ def one(m):
         region = georef.region_mask(g['P'], im.shape, NE) if g and g['ok'] else None
         for level in (0, 1, 2):
             doc = vec.process(im, region, level)
+            if m['id'] in LEGEND_PALETTE:            # second pass: the first one only finds the swatches
+                pal = legend.palette(doc, vec.to_lab(vec.clean(im)))
+                if pal: doc = vec.process(im, region, level, palette=pal)
             js = json.dumps(doc, separators=(',', ':'))
             if len(js) <= MAX_BYTES: break
         open(os.path.join(OUT, 'v', m['id'] + '.json'), 'w').write(js)
