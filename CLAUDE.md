@@ -21,6 +21,8 @@
 - Лист без полезного вектора помечает `no_vector` в `pipeline/build.py` (поле `nv` каталога).
   После изменения порогов запустить `build.py` без `--force`: он пересоберёт нужные слои.
   Затем запустить `build_legends.py`.
+- Текст легенд: `data/ocr/` — целые листы, `data/ocr_legend/` — мелкие легенды с увеличением
+  (`pipeline/ocr_legends.py`). `build_legends.py` берёт второй файл, если он есть.
 - Окружение Python: `.venv` (создаётся по `requirements.txt`).
 - `data/` и `site/public/data/` в git не входят.
 
