@@ -14,6 +14,9 @@ import catalog, georef, vec
 DATA = os.path.join(ROOT, 'data'); OUT = os.path.join(ROOT, 'site', 'public', 'data')
 NE = os.path.join(DATA, 'ne', 'countries50.geojson')
 MAX_BYTES = 1_400_000        # per vector file; coarser settings are tried above this
+# catalog fields the site reads; the rest of the page and build metadata stays in data/meta
+CATALOG_FIELDS = ('id', 'tom', 'n', 'of', 'section', 'title', 'page', 'src', 'w', 'h', 'osize', 'geo', 'nv')
+FORCE = False                # set in every worker by _init
 MIN_POLYGONS = 6             # fewer polygons: a table, a chart or a line-only map
 MAX_POLYGONS_UNREF = 1500    # more on a sheet without georeference: a photo, relief or an old plan
 
@@ -59,9 +62,8 @@ def one(m):
     return meta
 
 def main():
-    global FORCE
     ap = argparse.ArgumentParser(); ap.add_argument('--only', default=''); ap.add_argument('--jobs', type=int, default=8); ap.add_argument('--force', action='store_true')
-    a = ap.parse_args(); FORCE = a.force
+    a = ap.parse_args()
     for d in ('v', 't', 'd'): os.makedirs(os.path.join(OUT, d), exist_ok=True)
     os.makedirs(os.path.join(DATA, 'meta'), exist_ok=True)
     maps = catalog.parse(os.path.join(DATA, 'pages'))
@@ -72,27 +74,24 @@ def main():
             metas[meta['id']] = meta
             if i % 50 == 0: print(i, '/', len(todo), round(time.time() - t), 's', flush=True)
     # catalog covers every map that has been built so far (not only this run)
-    out, miss, err = [], 0, []
+    out, miss = [], 0
     for m in maps:
         fn = os.path.join(DATA, 'meta', m['id'] + '.json')
         if not os.path.exists(fn):
             miss += 1; continue
-        e = dict(m)
-        for k in ('order', 'file', 'alt', 'altfile'): e.pop(k, None)
-        e.update(json.load(open(fn)))
+        e = {**m, **json.load(open(fn))}
         why = no_vector(e)
         if why:
             e['nv'] = why
             v = os.path.join(OUT, 'v', m['id'] + '.json')
             if os.path.exists(v): os.remove(v)
-        out.append(e)
+        out.append({k: e[k] for k in CATALOG_FIELDS if k in e})
     err = [x for x in metas.values() if 'error' in x]
     json.dump({'built': time.strftime('%Y-%m-%d'), 'volumes': catalog.VOLUMES, 'maps': out}, open(os.path.join(OUT, 'catalog.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
     print('catalog', len(out), 'maps; georeferenced', sum('geo' in e for e in out), '; picture only', sum('nv' in e for e in out),
           '; not built', miss, '; errors', len(err))
     for x in err[:20]: print('  ', x)
 
-FORCE = False
 def _init(force):
     global FORCE
     FORCE = force
