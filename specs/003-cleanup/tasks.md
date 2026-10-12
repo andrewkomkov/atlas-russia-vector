@@ -11,9 +11,9 @@
 
 ## Запрос 2. Код
 
-- [ ] T007 `site/public/proj.js` и `tests/test_proj.py`
-- [ ] T008 `site/public/app.js`: строки не длиннее 120 знаков, `userMode` в `state`
-- [ ] T009 `pipeline/build.py`: один способ передать `FORCE`, поля каталога по FR-007
-- [ ] T010 `site/src/worker.js`: ответ 400 и `Range`
-- [ ] T011 `site/public/_headers`: заголовки безопасности
+- [x] T007 `site/public/proj.js` и `tests/test_proj.py`
+- [x] T008 `site/public/app.js`: строки не длиннее 120 знаков, `userMode` в `state`
+- [x] T009 `pipeline/build.py`: один способ передать `FORCE`, поля каталога по FR-007
+- [x] T010 `site/src/worker.js`: ответ 400 и `Range`
+- [x] T011 `site/public/_headers`: заголовки безопасности
 - [ ] T012 Публикация и проверка на живом сайте (SC-005)

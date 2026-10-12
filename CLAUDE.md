@@ -10,8 +10,12 @@
 - Порог привязки — константы `MIN_*` и `MAX_ROT` в `pipeline/georef.py`. После изменения
   порога или алгоритма привязки пересобрать (`build.py --force`) и просмотреть листы
   `qa_georef.py` по всем томам.
-- Формат `data/v/*.json` читает `site/public/app.js` (`toGeoJSON`); формула обратной
-  проекции продублирована там (`invProj`) и должна совпадать с `pipeline/geo.py`.
+- Формат `data/v/*.json` читает `site/public/app.js` (`toGeoJSON`).
+- Обратная проекция для браузера — `invProj` в `site/public/proj.js`. Она обязана совпадать
+  с `pipeline/geo.py`. Совпадение проверяет `tests/test_proj.py`.
+- Поля каталога перечислены в `CATALOG_FIELDS` в `pipeline/build.py`. Новое поле для сайта
+  добавлять туда.
+- Сайт отдаёт CSP из `site/public/_headers`. Новый внешний адрес добавлять в политику.
 - Библиотеки сайта: `npm install` в `site/` копирует MapLibre в `site/public/vendor/`. Версия
   зафиксирована в `site/package.json`. CDN не используется, папка `vendor/` в git не входит.
 - Лист без полезного вектора помечает `no_vector` в `pipeline/build.py` (поле `nv` каталога).
