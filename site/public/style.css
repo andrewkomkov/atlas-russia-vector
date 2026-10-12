@@ -123,3 +123,6 @@ a { color: var(--accent); }
 .tip i { flex: none; margin-top: 2px; }
 .badge.alt { background: var(--chip); color: var(--muted); }
 .sw.named span small { display: block; color: var(--muted); font-size: 11px; line-height: 1.25; }
+
+/* лист без векторного слоя: только оригинал */
+.plain .vec { display: none !important; }

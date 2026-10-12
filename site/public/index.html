@@ -36,12 +36,12 @@
 <section id="info" class="panel" hidden aria-label="Текущая карта">
   <div class="crumbs" id="crumbs"></div>
   <h2 id="title"></h2>
-  <div class="seg" role="tablist" aria-label="Режим просмотра">
+  <div class="seg vec" role="tablist" aria-label="Режим просмотра">
     <button id="mode-geo" role="tab">На глобусе</button>
     <button id="mode-sheet" role="tab">Лист</button>
   </div>
   <p class="note" id="note"></p>
-  <div class="row">
+  <div class="row vec">
     <label for="opacity">Вектор</label>
     <input id="opacity" type="range" min="0" max="100" value="88">
     <output id="opacity-v">88%</output>
@@ -52,14 +52,14 @@
     <output id="raster-v">100%</output>
   </div>
   <div class="row toggles">
-    <label class="check"><input id="outline" type="checkbox"> Контуры полигонов</label>
+    <label class="check vec"><input id="outline" type="checkbox"> Контуры полигонов</label>
     <label class="check" id="globe-wrap"><input id="globe" type="checkbox" checked> Глобус</label>
   </div>
-  <div class="legend-head"><span>Цветовые классы</span><button id="legend-reset" class="link">показать все</button></div>
-  <div id="legend" class="legend"></div>
+  <div class="legend-head vec"><span>Цветовые классы</span><button id="legend-reset" class="link">показать все</button></div>
+  <div id="legend" class="legend vec"></div>
   <div class="actions">
     <a id="dl-orig" class="btn" download>Оригинал</a>
-    <button id="dl-geojson" class="btn">GeoJSON</button>
+    <button id="dl-geojson" class="btn vec">GeoJSON</button>
     <a id="src" class="btn ghost" target="_blank" rel="noopener">Источник ↗</a>
     <button id="share" class="btn ghost">Ссылка</button>
   </div>

@@ -125,8 +125,9 @@ async function open(id, push = true) {
   $('info').hidden = false;
   $('crumbs').textContent = `Том ${m.tom} · ${m.section}`;
   $('title').textContent = m.title + (m.of > 1 ? ` (${m.n} из ${m.of})` : '');
-  $('mode-geo').disabled = !m.geo;
-  if (!m.geo) state.mode = 'sheet'; else if (!state.userMode) state.mode = 'geo'; else state.mode = state.userMode;
+  $('mode-geo').disabled = !m.geo || !!m.nv;
+  $('info').classList.toggle('plain', !!m.nv);
+  if (!m.geo || m.nv) state.mode = 'sheet'; else if (!state.userMode) state.mode = 'geo'; else state.mode = state.userMode;
   const ext = (m.src.match(/\.[a-z0-9]+$/i) || ['.jpg'])[0];
   $('dl-orig').href = `${ORIGINALS}${m.id}${ext}`; $('dl-orig').download = `atlas-${m.id}${ext}`;
   $('dl-orig').textContent = `Оригинал · ${(m.osize / 1048576).toFixed(1)} МБ`;
@@ -135,6 +136,12 @@ async function open(id, push = true) {
   document.querySelectorAll('.item.cur').forEach((e) => e.classList.remove('cur'));
   document.querySelector(`.item[data-id="${CSS.escape(id)}"]`)?.classList.add('cur');
   if (innerWidth <= 860) $('side').classList.add('hidden'), $('expand').hidden = false;
+  if (m.nv) {                                        // лист без векторного слоя: только оригинал
+    state.doc = { w: m.w, h: m.h, colors: [], share: [], f: [] };
+    $('legend').innerHTML = '';
+    render();
+    return;
+  }
   $('legend').innerHTML = '<div class="empty">Загрузка слоя…</div>';
   let doc;
   let lg = null;
@@ -146,11 +153,15 @@ async function open(id, push = true) {
   legend();
   render();
 }
+const NO_VECTOR = {
+  empty: 'На этом листе нет цветных областей: это таблица, график или карта из одних линий. Показан оригинал.',
+  noise: 'Это снимок, рельефная или старинная карта. Цвет здесь меняется плавно, поэтому векторного слоя нет. Показан оригинал.',
+};
 function syncMode() {
   const m = state.cur, geo = state.mode === 'geo';
   $('mode-geo').classList.toggle('on', geo); $('mode-sheet').classList.toggle('on', !geo);
   $('row-raster').hidden = geo; $('globe-wrap').hidden = !geo;
-  $('note').textContent = geo
+  $('note').textContent = m?.nv ? NO_VECTOR[m.nv] : geo
     ? 'Полигоны привязаны к местности по контуру России. Показана только территория внутри контура.'
     : (m?.geo ? 'Лист целиком: оригинал и векторный слой поверх него, вместе с легендой.' : 'Для этого листа автоматическая привязка не подтвердилась, поэтому он показан в координатах листа.');
 }
@@ -176,7 +187,7 @@ function filtered() {
   const q = state.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   return state.maps.filter((m) => (!state.tom || m.tom === state.tom) && (!state.onlyGeo || m.geo) && q.every((w) => m._s.includes(w)));
 }
-const itemHTML = (m) => `<div class="item${state.cur === m ? ' cur' : ''}" data-id="${m.id}"><img loading="lazy" alt="" src="data/t/${m.id}.webp"><div><b>${esc(m.title)}</b><small>том ${m.tom}${m.of > 1 ? ` · ${m.n} из ${m.of}` : ''}${m.geo ? '<span class="badge">глобус</span>' : ''}${m.lg ? '<span class="badge alt">легенда</span>' : ''}</small></div></div>`;
+const itemHTML = (m) => `<div class="item${state.cur === m ? ' cur' : ''}" data-id="${m.id}"><img loading="lazy" alt="" src="data/t/${m.id}.webp"><div><b>${esc(m.title)}</b><small>том ${m.tom}${m.of > 1 ? ` · ${m.n} из ${m.of}` : ''}${m.geo ? '<span class="badge">глобус</span>' : ''}${m.lg ? '<span class="badge alt">легенда</span>' : ''}${m.nv ? '<span class="badge alt">картинка</span>' : ''}</small></div></div>`;
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function list() {
   const ms = filtered(), el = $('list'); state.order = ms.map((m) => m.id);
