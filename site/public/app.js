@@ -35,12 +35,21 @@ const percent = (share) => (share * 100).toFixed(1).replace('.', ',');
 
 // ---------- данные карты
 
+// подпись знака с его номером в легенде: «19 · Сосновые леса»
+const numbered = (num, text) => (num ? `${num} · ${text}` : text);
+
+// знаки легенды, которые напечатаны одним цветом и различаются номером на листе
+const altsOf = (ci) => state.lg?.alts?.[ci] || [];
+const altTitle = (n) => `один из ${n} знаков этого цвета`;
+const ON_SHEET = 'номер знака напечатан на листе';
+
 // подпись класса из расшифрованной легенды: «заголовок · подпись»
 function labelOf(ci) {
   const text = state.lg?.labels?.[ci];
-  if (!text) return '';
+  if (!text) return altsOf(ci).map((a) => numbered(a.n, a.t)).join(' | ');
   const group = state.lg.groups?.[ci];
-  return group && group !== text ? `${group} · ${text}` : text;
+  const own = numbered(state.lg.nums?.[ci], text);
+  return group && group !== text ? `${group} · ${own}` : own;
 }
 
 function ringOf(flat, project, round) {
@@ -209,14 +218,25 @@ function applyHidden() {
 function tipHTML(ci, color) {
   const share = `${percent(state.doc.share[ci])} % листа`;
   const name = state.lg?.labels?.[ci];
+  const alts = altsOf(ci);
   const swatch = `<i style="background:${color}"></i>`;
+  if (alts.length) {
+    const rows = alts.map((a) => {
+      const group = a.g ? ` <small>${esc(a.g)}</small>` : '';
+      return `<li><b>${esc(a.n || '—')}</b>${esc(a.t)}${group}</li>`;
+    });
+    const where = alts.some((a) => a.n) ? ` · ${ON_SHEET}` : '';
+    const hint = `${altTitle(alts.length)}${where} · ${share}`;
+    return `${swatch}<span><small>${hint}</small><ul>${rows.join('')}</ul></span>`;
+  }
   if (!name) {
     const why = state.lg ? 'нет подписи в легенде' : 'легенда не расшифрована';
     return `${swatch}<span><b>${share}</b><small>${why}</small></span>`;
   }
   const group = state.lg.groups?.[ci];
   const head = group ? `<small>${esc(group)}</small>` : '';
-  return `${swatch}<span>${head}<b>${esc(name)}</b><small>${share}</small></span>`;
+  const own = numbered(state.lg.nums?.[ci], name);
+  return `${swatch}<span>${head}<b>${esc(own)}</b><small>${share}</small></span>`;
 }
 
 map.on('mousemove', 'v-fill', (e) => {
@@ -228,8 +248,10 @@ map.on('mousemove', 'v-fill', (e) => {
   const tip = $('tip');
   tip.hidden = false;
   tip.innerHTML = tipHTML(ci, c);
-  tip.style.left = Math.min(e.originalEvent.clientX + 14, innerWidth - 340) + 'px';
-  tip.style.top = e.originalEvent.clientY + 14 + 'px';
+  tip.classList.toggle('wide', altsOf(ci).length > 0);
+  // подсказка не выходит за правый и нижний край окна
+  tip.style.left = Math.max(8, Math.min(e.originalEvent.clientX + 14, innerWidth - tip.offsetWidth - 8)) + 'px';
+  tip.style.top = Math.max(8, Math.min(e.originalEvent.clientY + 14, innerHeight - tip.offsetHeight - 8)) + 'px';
 });
 map.on('mouseleave', 'v-fill', () => {
   map.getCanvas().style.cursor = '';
@@ -328,10 +350,16 @@ function swatchButton(ci) {
   b.className = 'sw' + (name ? ' named' : '') + (state.hidden.has(ci) ? ' off' : '');
   b.title = name || doc.colors[ci];
   const swatch = `<i style="background:${doc.colors[ci]}"></i>`;
-  if (name) {
+  const alts = altsOf(ci);
+  if (alts.length) {
+    const nums = alts.map((a) => a.n).filter(Boolean).join(', ');
+    const sub = `<small>${nums ? `знаки ${esc(nums)}: ` : ''}${esc(alts[0].t)} и другие</small>`;
+    b.innerHTML = `${swatch}<span>${altTitle(alts.length)}${sub}</span><em>${share}</em>`;
+  } else if (name) {
     const group = state.lg.groups?.[ci];
     const sub = group ? `<small>${esc(group)}</small>` : '';
-    b.innerHTML = `${swatch}<span>${esc(state.lg.labels[ci])}${sub}</span><em>${share}</em>`;
+    const own = numbered(state.lg.nums?.[ci], state.lg.labels[ci]);
+    b.innerHTML = `${swatch}<span>${esc(own)}${sub}</span><em>${share}</em>`;
   } else {
     b.innerHTML = swatch + share;
   }

@@ -6,6 +6,12 @@ sys.path.insert(0, HERE)
 import catalog, legend
 DATA = os.path.join(ROOT, 'data'); OUT = os.path.join(ROOT, 'site', 'public', 'data')
 
+SMALL_SWATCH = 22   # sheet pixels; lower swatches mean small text, which only the enlarged reading gets right
+MUCH_MORE = 1.25    # large text reads cleaner on the whole sheet: the enlarged reading must find this much more
+
+def count(r):
+    return len(r['labels']) + len(r.get('alts', {}))
+
 def main():
     os.makedirs(os.path.join(OUT, 'l'), exist_ok=True)
     files = {m['id']: m['file'] for m in catalog.parse(os.path.join(DATA, 'pages'))}
@@ -19,11 +25,17 @@ def main():
         if os.path.exists(dst): os.remove(dst)
         if m.get('nv') or not (os.path.exists(v) and os.path.exists(o)): continue
         doc = json.load(open(v))
-        fine = os.path.join(DATA, 'ocr_legend', m['id'] + '.json')      # small legends read at a larger scale
-        r = legend.decode(doc, json.load(open(fine if os.path.exists(fine) else o)))
-        if len(r['labels']) < 2: continue          # a single labelled rectangle is rarely a legend
+        r = legend.decode(doc, json.load(open(o)))
+        found = count(r)
+        fine = os.path.join(DATA, 'ocr_legend', m['id'] + '.json')      # legend regions read at a larger scale
+        if os.path.exists(fine):
+            r2 = legend.decode(doc, json.load(open(fine)))
+            heights = sorted(s['h'] for s in legend.swatches(doc))
+            small = heights[len(heights) // 2] < SMALL_SWATCH
+            if small or count(r2) >= max(found + 2, MUCH_MORE * found): r, found = r2, count(r2)
+        if found < 2: continue                     # a single labelled rectangle is rarely a legend
         json.dump(r, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
-        m['lg'] = len(r['labels']); n += 1; tot += m['lg']
+        m['lg'] = found; n += 1; tot += m['lg']
     json.dump(cat, open(os.path.join(OUT, 'catalog.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
     for t in (1, 2, 3, 4):
         ms = [m for m in cat['maps'] if m['tom'] == t]

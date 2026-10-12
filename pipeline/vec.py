@@ -3,10 +3,17 @@ import numpy as np, cv2
 from scipy import ndimage as ndi
 
 MAXW = 2400
+PALETTE_GAP = 6.0     # dE; a k-means centre closer to a legend colour repeats it
 
-def quantize(im, K=32, merge=7.0, seed=0):
+def to_lab(im):
     lab = cv2.cvtColor(im, cv2.COLOR_BGR2Lab).astype(np.float32)
     lab[..., 0] *= 100 / 255.0; lab[..., 1:] -= 128
+    return lab
+
+def quantize(im, K=32, merge=7.0, seed=0, palette=None):
+    """-> (label image, Lab centres). With a palette (legend colours) its colours are the
+    first classes; k-means only adds the colours the legend does not have."""
+    lab = to_lab(im)
     flat = lab.reshape(-1, 3)
     rng = np.random.default_rng(seed)
     samp = flat[rng.choice(len(flat), min(len(flat), 150000), replace=False)]
@@ -22,11 +29,16 @@ def quantize(im, K=32, merge=7.0, seed=0):
         cen[i] = (cen[i] * w[i] + cen[j] * w[j]) / (w[i] + w[j]); w[i] += w[j]
         cen = np.delete(cen, j, 0); w = np.delete(w, j)
     cen = cen[w > 0.0004 * w.sum()]
+    if palette is not None and len(palette):
+        pal = np.asarray(palette, float)
+        far = np.linalg.norm(cen[:, None] - pal[None], axis=2).min(1) > PALETTE_GAP
+        cen = np.vstack([pal, cen[far]])[:255]
     labels = np.empty(len(flat), np.uint8)
     c32 = cen.astype(np.float32)
-    for s in range(0, len(flat), 400000):
-        ch = flat[s:s + 400000]
-        labels[s:s + 400000] = ((ch[:, None] - c32[None]) ** 2).sum(2).argmin(1)
+    step = 4_000_000 // len(c32)                     # keeps the distance table near 50 MB
+    for s in range(0, len(flat), step):
+        ch = flat[s:s + step]
+        labels[s:s + step] = ((ch[:, None] - c32[None]) ** 2).sum(2).argmin(1)
     return labels.reshape(im.shape[:2]), cen
 
 def lab2hex(c):
@@ -49,10 +61,12 @@ def clean(im):
 
 def smooth_labels(lab, K, minarea):
     H, W = lab.shape
-    votes = np.zeros((K, H, W), np.uint8)
-    for i in range(K):
-        votes[i] = cv2.blur((lab == i).astype(np.uint8) * 255, (5, 5))
-    lab = votes.argmax(0).astype(np.uint8); del votes
+    best = np.zeros((H, W), np.uint8); win = np.zeros((H, W), np.uint8)
+    for i in range(K):                               # majority vote in a 5 x 5 window, one class at a time
+        v = cv2.blur((lab == i).astype(np.uint8) * 255, (5, 5))
+        m = v > best
+        best[m] = v[m]; win[m] = i
+    lab = win
     bad = np.zeros((H, W), bool)
     for i in range(K):
         n, cc, st, _ = cv2.connectedComponentsWithStats((lab == i).astype(np.uint8), connectivity=4)
@@ -88,15 +102,16 @@ def polygons(lab, K, eps=0.9, minarea=25):
             out.append((i, rings))
     return out
 
-def process(im, region=None, level=0):
-    """region: optional uint8 mask (same size as im) of 'inside the mapped territory'."""
+def process(im, region=None, level=0, palette=None):
+    """region: optional uint8 mask (same size as im) of 'inside the mapped territory';
+    palette: optional Lab colours of the legend swatches (see quantize)."""
     h0, w0 = im.shape[:2]
     s = min(1.0, MAXW / w0)
     if s < 1:
         im = cv2.resize(im, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
         if region is not None: region = cv2.resize(region, (im.shape[1], im.shape[0]), interpolation=cv2.INTER_NEAREST)
     H, W = im.shape[:2]
-    lab, cen = quantize(clean(im), K=(32, 20, 12)[level])
+    lab, cen = quantize(clean(im), K=(32, 20, 12)[level], palette=palette)
     K = len(cen)
     lab = smooth_labels(lab, K, max(30, int(H * W * (1.2e-5, 5e-5, 2e-4)[level])))
     white = [i for i, c in enumerate(cen) if c[0] > 96.5 and np.hypot(c[1], c[2]) < 4.5]
