@@ -122,4 +122,4 @@ a { color: var(--accent); }
 .tip small { color: var(--muted); }
 .tip i { flex: none; margin-top: 2px; }
 .badge.alt { background: var(--chip); color: var(--muted); }
-.sw.named span small { display: block; color: var(--muted); font-size: 11px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px; }
+.sw.named span small { display: block; color: var(--muted); font-size: 11px; line-height: 1.25; }
