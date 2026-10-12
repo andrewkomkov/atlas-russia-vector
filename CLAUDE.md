@@ -14,10 +14,14 @@
   проекции продублирована там (`invProj`) и должна совпадать с `pipeline/geo.py`.
 - Библиотеки сайта: `npm install` в `site/` копирует MapLibre в `site/public/vendor/`. Версия
   зафиксирована в `site/package.json`. CDN не используется, папка `vendor/` в git не входит.
+- Лист без полезного вектора помечает `no_vector` в `pipeline/build.py` (поле `nv` каталога).
+  После изменения порогов запустить `build.py` без `--force`: он пересоберёт нужные слои.
+  Затем запустить `build_legends.py`.
 - Окружение Python: `.venv` (создаётся по `requirements.txt`).
 - `data/` и `site/public/data/` в git не входят.
 
 ## Проверка
 
 - `pipeline/check.py` — полнота данных.
+- `.venv/bin/python -m unittest discover -s tests` — тесты.
 - Локально: `cd site && npx wrangler dev`.
