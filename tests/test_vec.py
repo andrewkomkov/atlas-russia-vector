@@ -25,6 +25,14 @@ class Palette(unittest.TestCase):
         self.assertEqual((lab[60, 30], lab[60, 90]), (0, 1))
         self.assertEqual(len(cen), 3)               # the third colour comes from k-means
 
+    def test_same_sheet_gives_the_same_classes(self):
+        rng = np.random.default_rng(1)
+        im = rng.integers(0, 255, (120, 180, 3)).astype(np.uint8)
+        first = vec.quantize(im, K=8)
+        vec.quantize(stripes([(60, 60, 200), (200, 80, 40)]), K=4)      # another sheet in between
+        again = vec.quantize(im, K=8)
+        self.assertTrue(np.array_equal(first[0], again[0]) and np.array_equal(first[1], again[1]))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -18,6 +18,7 @@ def quantize(im, K=32, merge=7.0, seed=0, palette=None):
     rng = np.random.default_rng(seed)
     samp = flat[rng.choice(len(flat), min(len(flat), 150000), replace=False)]
     crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 25, 0.5)
+    cv2.setRNGSeed(seed)                             # k-means draws from OpenCV's own generator
     _, sl, cen = cv2.kmeans(samp, K, None, crit, 2, cv2.KMEANS_PP_CENTERS)
     w = np.bincount(sl.ravel(), minlength=K).astype(float)
     cen = cen.astype(float)
