@@ -126,3 +126,10 @@ a { color: var(--accent); }
 
 /* лист без векторного слоя: только оригинал */
 .plain .vec { display: none !important; }
+
+/* несколько знаков легенды одного цвета */
+.tip.wide { max-width: 460px; }
+.tip ul { margin: 3px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.tip li { line-height: 1.3; display: grid; grid-template-columns: 34px 1fr; }
+.tip li b { color: var(--accent); }
+.tip li small { grid-column: 2; }
