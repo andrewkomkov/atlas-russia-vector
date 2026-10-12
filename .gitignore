@@ -1,0 +1,8 @@
+.venv/
+data/
+site/public/data/
+node_modules/
+.wrangler/
+__pycache__/
+.DS_Store
+site/public/vendor/
