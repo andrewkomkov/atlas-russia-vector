@@ -1,6 +1,7 @@
 """Recognise legend text at a larger scale: Vision shrinks a whole sheet and loses small
 text, so every swatch column (legend.regions) is cut out, enlarged and read on its own.
 Writes data/ocr_legend/<id>.json, lines in sheet pixels. Needs data/ocr_bin, macOS only.
+A legend is read again when its regions moved: the vector layer was rebuilt.
 usage: ocr_legends.py [--only ID_PREFIX] [--jobs N] [--force]"""
 import os, sys, json, argparse, subprocess, tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -69,13 +70,13 @@ def read(im, boxes):
 def one(m):
     dst = os.path.join(OUT, m['id'] + '.json')
     vec = os.path.join(SITE, 'v', m['id'] + '.json')
-    if (os.path.exists(dst) and not FORCE) or not os.path.exists(vec): return 0
-    doc = json.load(open(vec))
-    boxes = pieces(legend.regions(doc))
+    if not os.path.exists(vec): return 0
+    boxes = [list(b) for b in pieces(legend.regions(json.load(open(vec))))]
     if not boxes: return 0
+    if os.path.exists(dst) and not FORCE and json.load(open(dst)).get('boxes') == boxes: return 0
     im = cv2.imread(os.path.join(DATA, 'img', m['file']))
     if im is None: return 0
-    json.dump({'lines': read(im, boxes)}, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
+    json.dump({'boxes': boxes, 'lines': read(im, boxes)}, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
     return 1
 
 def main():
