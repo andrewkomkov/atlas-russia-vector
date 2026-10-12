@@ -210,7 +210,10 @@ function tipHTML(ci, color) {
   const share = `${percent(state.doc.share[ci])} % листа`;
   const name = state.lg?.labels?.[ci];
   const swatch = `<i style="background:${color}"></i>`;
-  if (!name) return `${swatch}<span>${color} · ${share}</span>`;
+  if (!name) {
+    const why = state.lg ? 'нет подписи в легенде' : 'легенда не расшифрована';
+    return `${swatch}<span><b>${share}</b><small>${why}</small></span>`;
+  }
   const group = state.lg.groups?.[ci];
   const head = group ? `<small>${esc(group)}</small>` : '';
   return `${swatch}<span>${head}<b>${esc(name)}</b><small>${share}</small></span>`;
