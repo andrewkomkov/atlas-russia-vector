@@ -66,6 +66,9 @@ def one(m):
             # a coarser level also when this one has too many polygons for a sheet without georeference
             if len(js) <= MAX_BYTES and no_vector({'nf': len(doc['f']), **({} if region is None else {'geo': 1})}) != 'noise': break
         open(os.path.join(OUT, 'v', m['id'] + '.json'), 'w').write(js)
+        for d in ('l', 'a'):                                 # labels of the old classes would land on new colours
+            stale = os.path.join(OUT, d, m['id'] + '.json')
+            if os.path.exists(stale): os.remove(stale)
         h, w = im.shape[:2]
         s = 420 / w
         cv2.imwrite(os.path.join(OUT, 't', m['id'] + '.webp'), cv2.resize(im, None, fx=s, fy=s, interpolation=cv2.INTER_AREA), [cv2.IMWRITE_WEBP_QUALITY, 72])

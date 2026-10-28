@@ -34,10 +34,11 @@ def main():
         if os.path.exists(dst): os.remove(dst)
         if m.get('nv') or not (os.path.exists(v) and os.path.exists(o)): continue
         fine = os.path.join(DATA, 'ocr_legend', m['id'] + '.json')      # legend regions read at a larger scale
-        r = best(json.load(open(v)), json.load(open(o)), json.load(open(fine)) if os.path.exists(fine) else None)
+        doc = json.load(open(v))
+        r = best(doc, json.load(open(o)), json.load(open(fine)) if os.path.exists(fine) else None)
         found = count(r)
         if found < 2: continue                     # a single labelled rectangle is rarely a legend
-        json.dump(r, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
+        json.dump({**r, 'v': legend.layer_print(doc)}, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
         m['lg'] = found; n += 1; tot += m['lg']
     json.dump(cat, open(os.path.join(OUT, 'catalog.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
     for t in (1, 2, 3, 4):
