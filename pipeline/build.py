@@ -20,6 +20,7 @@ CATALOG_FIELDS = ('id', 'tom', 'n', 'of', 'section', 'title', 'page', 'src', 'w'
 FORCE = False                # set in every worker by _init
 MIN_POLYGONS = 6             # fewer polygons: a table, a chart or a line-only map
 MAX_POLYGONS_UNREF = 1500    # more on a sheet without georeference: a photo, relief or an old plan
+RIBBON_GROWTH = 2.0          # kept legend-coloured strokes multiplying the polygons are rivers, not ribbons
 
 def no_vector(meta):
     """-> 'empty' | 'noise' | None: why the sheet is shown as a picture only."""
@@ -34,6 +35,8 @@ def by_legend(im, region, level, doc, lab):
     pal = legend.palette(doc, lab)
     if len(pal) <= legend.swatch_classes(doc): return None
     doc2 = vec.process(im, region, level, palette=pal)
+    if len(doc2['f']) > RIBBON_GROWTH * len(doc['f']):
+        doc2 = vec.process(im, region, level, palette=pal, ribbons=False)
     geo = {} if region is None else {'geo': True}
     spoilt = no_vector({'nf': len(doc2['f']), **geo}) and not no_vector({'nf': len(doc['f']), **geo})
     return doc2 if legend.keeps_legend(doc, doc2) and not spoilt else None
@@ -60,7 +63,8 @@ def one(m):
                 doc2 = by_legend(im, region, level, doc, lab)
             doc = doc2 or doc
             js = json.dumps(doc, separators=(',', ':'))
-            if len(js) <= MAX_BYTES: break
+            # a coarser level also when this one has too many polygons for a sheet without georeference
+            if len(js) <= MAX_BYTES and no_vector({'nf': len(doc['f']), **({} if region is None else {'geo': 1})}) != 'noise': break
         open(os.path.join(OUT, 'v', m['id'] + '.json'), 'w').write(js)
         h, w = im.shape[:2]
         s = 420 / w

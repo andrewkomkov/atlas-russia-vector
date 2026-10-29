@@ -4,6 +4,12 @@ from scipy import ndimage as ndi
 
 MAXW = 2400
 PALETTE_GAP = 6.0     # dE; a k-means centre closer to a legend colour repeats it
+LINE_DT90 = 7.0       # px at MAXW wide; a class whose 90th distance-to-edge percentile is below is thin
+LINE_LONG = 10        # a thin class is a line when its longest piece is this many times its width; dots are not
+SPECK_SHARE = 3e-4    # of the sheet; a smaller blob enclosed by one class is a label remnant
+WHITE_SPECK = 10      # paper white inside a fill is a label cluster up to this many specks in size
+SPECK_DE = 15.0       # dE; a remnant is a blend of the fill around it, a real small class has its own colour
+RIBBON_DE = 8.0       # dE; a thin stroke this close to a legend colour is a ribbon class, not ink
 
 def to_lab(im):
     lab = cv2.cvtColor(im, cv2.COLOR_BGR2Lab).astype(np.float32)
@@ -47,13 +53,19 @@ def lab2hex(c):
     b, g, r = cv2.cvtColor(px, cv2.COLOR_Lab2BGR)[0, 0]
     return '#%02x%02x%02x' % (r, g, b)
 
-def clean(im):
+def clean(im, palette=None):
     """Erase thin strokes (labels, rivers, borders): mark them with a black-hat /
-    top-hat test and refill from the nearest untouched pixel."""
+    top-hat test and refill from the nearest untouched pixel. With a palette (legend
+    colours) a thin stroke of a legend colour is a ribbon class and stays."""
     k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
     bh = cv2.morphologyEx(im, cv2.MORPH_BLACKHAT, k).max(2)
     th = cv2.morphologyEx(im, cv2.MORPH_TOPHAT, k).max(2)
-    ink = ((bh > 22) | (th > 40)).astype(np.uint8)
+    ink = (bh > 22) | (th > 40)
+    if palette is not None and len(palette):
+        lab = to_lab(im)
+        d = np.min([np.linalg.norm(lab - p, axis=2) for p in np.asarray(palette, np.float32)], axis=0)
+        ink &= d > RIBBON_DE
+    ink = ink.astype(np.uint8)
     ink = cv2.dilate(ink, np.ones((3, 3), np.uint8))
     if ink.mean() < 0.6:
         idx = ndi.distance_transform_edt(ink, return_distances=False, return_indices=True)
@@ -79,6 +91,48 @@ def smooth_labels(lab, K, minarea):
         lab = lab[idx[0], idx[1]]
     return lab
 
+def _refill(lab, bad):
+    """Give every bad pixel the label of the nearest good one."""
+    if not bad.any() or bad.all(): return lab
+    idx = ndi.distance_transform_edt(bad, return_distances=False, return_indices=True)
+    return lab[idx[0], idx[1]]
+
+def drop_lines(lab, K, keep=()):
+    """Classes that are nowhere thick (the state border band, antialias halos) are strokes,
+    not areas: their pixels take the neighbouring class. Legend classes (keep) stay."""
+    bad = np.zeros(lab.shape, bool)
+    limit = LINE_DT90 * lab.shape[1] / MAXW            # a small inset draws its classes thinner
+    for i in range(K):
+        if i in keep: continue
+        m = (lab == i).astype(np.uint8)
+        if not m.any(): continue
+        dt90 = np.percentile(cv2.distanceTransform(m, cv2.DIST_L2, 3)[m > 0], 90)
+        if dt90 >= limit: continue
+        st = cv2.connectedComponentsWithStats(m, connectivity=8)[2][1:]
+        if st[:, 2:4].max() > LINE_LONG * 2 * dt90: bad |= m > 0
+    return _refill(lab, bad)
+
+def drop_specks(lab, cen, keep=(), white=()):
+    """A small blob enclosed by a single class of a close colour (or paper white) is what is
+    left of a label or a number: it takes the enclosing class. Legend classes keep their blobs."""
+    K = len(cen)
+    limit = SPECK_SHARE * lab.size
+    bad = np.zeros(lab.shape, bool)
+    k3 = np.ones((3, 3), np.uint8)
+    for i in range(K):
+        if i in keep and i not in white: continue
+        n, cc, st, _ = cv2.connectedComponentsWithStats((lab == i).astype(np.uint8), connectivity=8)
+        for c in np.nonzero(st[1:, cv2.CC_STAT_AREA] < limit * (WHITE_SPECK if i in white else 1))[0] + 1:
+            x, y, w, h = st[c, :4]
+            x0, y0 = max(0, x - 1), max(0, y - 1)
+            sub = cc[y0:y + h + 1, x0:x + w + 1] == c
+            ring = cv2.dilate(sub.astype(np.uint8), k3).astype(bool) & ~sub
+            around = np.unique(lab[y0:y + h + 1, x0:x + w + 1][ring])
+            if len(around) != 1: continue
+            if i in white or np.linalg.norm(cen[i] - cen[around[0]]) < SPECK_DE:
+                bad[y0:y + h + 1, x0:x + w + 1] |= sub
+    return _refill(lab, bad)
+
 def polygons(lab, K, eps=0.9, minarea=25):
     """-> list of (label, [rings]) ; ring = Nx2 int array (x,y), first ring outer."""
     out = []
@@ -103,19 +157,35 @@ def polygons(lab, K, eps=0.9, minarea=25):
             out.append((i, rings))
     return out
 
-def process(im, region=None, level=0, palette=None):
+def legend_classes(lab, K, region, scale):
+    """Classes drawn as legend swatches: a thin ribbon or a few small dots of such a class is
+    data, not a stroke. Found the way legend.swatches finds them, before any cleanup."""
+    import legend
+    l2 = lab if region is None else np.where(region > 0, 255, lab).astype(np.uint8)
+    H, W = lab.shape
+    doc = {'w': W * scale, 'f': [[i, 0, [(r * scale).ravel().tolist() for r in rings]] for i, rings in polygons(l2, K)]}
+    return {s['ci'] for s in legend.swatches(doc)}
+
+def process(im, region=None, level=0, palette=None, ribbons=True):
     """region: optional uint8 mask (same size as im) of 'inside the mapped territory';
-    palette: optional Lab colours of the legend swatches (see quantize)."""
+    palette: optional Lab colours of the legend swatches (see quantize);
+    ribbons: keep thin strokes of a legend colour (see clean)."""
     h0, w0 = im.shape[:2]
     s = min(1.0, MAXW / w0)
     if s < 1:
         im = cv2.resize(im, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
         if region is not None: region = cv2.resize(region, (im.shape[1], im.shape[0]), interpolation=cv2.INTER_NEAREST)
     H, W = im.shape[:2]
-    lab, cen = quantize(clean(im), K=(32, 20, 12)[level], palette=palette)
+    lab, cen = quantize(clean(im, palette if ribbons else None), K=(32, 20, 12)[level], palette=palette)
     K = len(cen)
-    lab = smooth_labels(lab, K, max(30, int(H * W * (1.2e-5, 5e-5, 2e-4)[level])))
+    minarea = max(30, int(H * W * (1.2e-5, 5e-5, 2e-4)[level]))
+    lab = smooth_labels(lab, K, minarea)
     white = [i for i, c in enumerate(cen) if c[0] > 96.5 and np.hypot(c[1], c[2]) < 4.5]
+    keep = set(range(len(palette))) if palette is not None else set()
+    keep |= legend_classes(lab, K, region, w0 / W)
+    cleaned = drop_specks(drop_lines(lab, K, keep), cen, keep, white)
+    if (cleaned != lab).any():                          # nearest-pixel refill leaves ragged edges
+        lab = smooth_labels(cleaned, K, minarea)
     feats = []
     parts = [(1, region > 0), (0, region == 0)] if region is not None else [(0, None)]
     for inside, pm in parts:
