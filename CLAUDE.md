@@ -25,6 +25,7 @@
   (`pipeline/ocr_legends.py`). `build_legends.py` выбирает лучшее чтение для каждой карты.
 - Классы по цветам легенды: карты выбирает правило в `build.by_legend`, условие —
   `legend.keeps_legend`. Списка карт нет. Признак — поле `legend` в `data/meta/<id>.json`.
+  Исключение — листы с образцами, которые поиск не находит: их центры в `pipeline/swatch_table.py`.
   После изменения правила: `build.py --force` (или `--ids FILE`), `ocr_legends.py`,
   `build_legends.py`. `ocr_legends.py` сам перечитывает легенды с новыми областями.
 - `vec.quantize` задаёт начальное число генератора OpenCV. Без него результат зависит
