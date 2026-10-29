@@ -3,6 +3,13 @@ recognised to the right of each swatch and the heading above the swatch column."
 import re
 import numpy as np
 
+def layer_print(doc):
+    """Fingerprint of a vector layer's colour classes. A legend or marks file keeps the print of the
+    layer it was built from: a class number means nothing for a layer built again."""
+    import hashlib
+    return hashlib.sha1(','.join(doc['colors']).encode()).hexdigest()[:12]
+
+
 def swatches(doc):
     """Rectangular polygons of a repeated size that lie outside the mapped territory."""
     k = doc['w'] / 2700.0

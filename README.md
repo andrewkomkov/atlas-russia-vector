@@ -284,6 +284,7 @@ swiftc -O pipeline/ocr.swift -o data/ocr_bin       # распознавание 
 (cd data/img && ls | OCR_OUT=../ocr xargs -P 3 -n 12 ../ocr_bin)
 .venv/bin/python pipeline/ocr_legends.py           # легенды с увеличением
 .venv/bin/python pipeline/build_legends.py         # подписи классов
+.venv/bin/python pipeline/build_marks.py           # разметка листов из marks/
 
 python3 pipeline/publish_originals.py              # оригиналы -> R2
 .venv/bin/python pipeline/check.py                 # проверка полноты
@@ -306,6 +307,8 @@ cd site && npm install && npx wrangler deploy      # библиотеки сай
 | `pipeline/vec.py` | Изображение → цветовые полигоны |
 | `pipeline/legend.py`, `ocr.swift`, `ocr_legends.py` | Подписи классов из легенды |
 | `pipeline/build.py`, `build_legends.py` | Сборка данных сайта |
+| `pipeline/marks.py`, `build_marks.py`, `qa_marks.py` | Разметка листов: выделы, знаки, таблицы легенд |
+| `marks/` | Файлы ручной разметки листов |
 | `site/public/` | Статический сайт на MapLibre GL JS 5.24.0, без сборки |
 | `site/public/proj.js` | Обратная проекция для браузера |
 | `site/public/_headers` | Заголовки кэша и безопасности |
@@ -334,6 +337,35 @@ cd site && npm install && npx wrangler deploy      # библиотеки сай
 | `nums` | Номер условного знака |
 | `groups` | Заголовок группы |
 | `alts` | Знаки одного цвета: номер `n`, подпись `t`, заголовок `g` |
+| `v` | Отпечаток цветов слоя (`legend.layer_print`) |
+
+Номер класса имеет смысл только для того слоя, из которого собрана легенда. `build.py`
+удаляет файлы `l/` и `a/` листа при пересборке слоя. `check.py` отказывает, если отпечаток
+файла не совпадает со слоем. Так подписи не попадают на чужие цвета.
+
+### Разметка листа
+
+Некоторые листы конвейер не описывает полностью: выделы различает номер на карте, знаки
+нарисованы линиями и точками, легенда не распознаётся. Для таких листов человек пишет файл
+`marks/<id>.json`. Файл лежит в git, координаты в нём — пиксели оригинала. Программа
+`pipeline/build_marks.py` превращает разметку в `site/public/data/a/<id>.json`. Формат
+разметки и правило роста выделов — в `specs/007-fauna-sheets/plan.md`.
+
+| Поле `a/<id>.json` | Значение |
+|---|---|
+| `v` | Отпечаток цветов слоя |
+| `source`, `made` | Что переписано с листа и когда |
+| `legend.classes` | `{класс: [знаки]}`. Знак: `key`, `label`, `text`, `group`, `kind`, `de` |
+| `legend.lost` | Знаки, цвет которых слой не различает |
+| `units.keys` | Ключи выделов (номер на карте) |
+| `units.info` | Текст выдела по ключу |
+| `units.f` | Полигоны выделов: `[номер ключа, 1, кольца]` |
+| `units.share`, `units.none` | Доля суши у выдела и без выдела |
+| `points`, `lines` | Знаки: `kind`, `key`, `x`, `y` либо `xy` |
+| `species`, `kinds` | Перечень видов и названия знаков |
+
+Листы с разметкой: `2-373-377-1`, `2-380-1`, `2-387-1…4`, `2-388-389-1`, `2-394-395-1`.
+Лист контроля: `pipeline/qa_marks.py OUT.jpg ID [x0 y0 x1 y1] [масштаб]`.
 
 ## Хостинг
 
