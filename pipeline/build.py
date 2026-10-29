@@ -10,7 +10,7 @@ from multiprocessing import Pool
 import cv2
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-import catalog, georef, legend, vec
+import catalog, georef, legend, swatch_table, vec
 
 DATA = os.path.join(ROOT, 'data'); OUT = os.path.join(ROOT, 'site', 'public', 'data')
 NE = os.path.join(DATA, 'ne', 'countries50.geojson')
@@ -28,18 +28,20 @@ def no_vector(meta):
     if 'geo' not in meta and meta['nf'] > MAX_POLYGONS_UNREF: return 'noise'
     return None
 
-def by_legend(im, region, level, doc, lab):
+def by_legend(im, region, level, doc, lab, pal=None):
     """The layer with colour classes taken from the legend swatches of doc (the first pass).
     None when the legend has no more colours than the swatches have classes, when the second
-    pass loses the legend (legend.keeps_legend) or turns the sheet into a picture (no_vector)."""
-    pal = legend.palette(doc, lab)
-    if len(pal) <= legend.swatch_classes(doc): return None
+    pass loses the legend (legend.keeps_legend) or turns the sheet into a picture (no_vector).
+    pal: colours of swatches located by hand (swatch_table), kept without the swatch tests."""
+    fixed = pal is not None
+    if not fixed: pal = legend.palette(doc, lab)
+    if not fixed and len(pal) <= legend.swatch_classes(doc): return None
     doc2 = vec.process(im, region, level, palette=pal)
     if len(doc2['f']) > RIBBON_GROWTH * len(doc['f']):
         doc2 = vec.process(im, region, level, palette=pal, ribbons=False)
     geo = {} if region is None else {'geo': True}
     spoilt = no_vector({'nf': len(doc2['f']), **geo}) and not no_vector({'nf': len(doc['f']), **geo})
-    return doc2 if legend.keeps_legend(doc, doc2) and not spoilt else None
+    return doc2 if (fixed or legend.keeps_legend(doc, doc2)) and not spoilt else None
 
 def one(m):
     meta_fn = os.path.join(DATA, 'meta', m['id'] + '.json')
@@ -58,9 +60,10 @@ def one(m):
         for level in (0, 1, 2):
             doc = vec.process(im, region, level)
             doc2 = None
-            if legend.swatches(doc):
+            table = swatch_table.SHEETS.get(m['id'])
+            if table or legend.swatches(doc):
                 if lab is None: lab = vec.to_lab(vec.clean(im))
-                doc2 = by_legend(im, region, level, doc, lab)
+                doc2 = by_legend(im, region, level, doc, lab, swatch_table.palette(table, lab) if table else None)
             doc = doc2 or doc
             js = json.dumps(doc, separators=(',', ':'))
             # a coarser level also when this one has too many polygons for a sheet without georeference
